@@ -1,0 +1,7 @@
+{
+  "name": "IoT MQTT Mobile Studio",
+  "description": "移动端物联网 (IoT) MQTT 通信实战架构指南与真机联调工作台，专为嵌入式与电控开发者打造",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
