@@ -15,7 +15,13 @@ import {
   ArrowUpRight,
   RefreshCw,
   Layers,
-  Sparkles
+  Sparkles,
+  AlertTriangle,
+  ShieldAlert,
+  Smartphone,
+  CheckCircle2,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import { MqttMessage, TelemetryData } from '../types';
 
@@ -34,6 +40,7 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatusText, setConnectionStatusText] = useState('未连接');
+  const [httpsDiagnosisNotice, setHttpsDiagnosisNotice] = useState<string | null>(null);
 
   // 持久化保存固定配置
   useEffect(() => {
@@ -128,8 +135,19 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
   const handleConnect = () => {
     if (isConnecting || isConnected) return;
 
+    setHttpsDiagnosisNotice(null);
     setIsConnecting(true);
-    setConnectionStatusText('正在建立 TCP/WSS 握手...');
+    setConnectionStatusText('正在建立连接...');
+
+    // 检查是否在 HTTPS 网页中直接尝试连接未加密的 ws:// 或原生 TCP 1883
+    const isPageHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const isUnencryptedWs = brokerUrl.startsWith('ws://') || brokerUrl.startsWith('mqtt://') || (!brokerUrl.startsWith('wss://') && !brokerUrl.startsWith('ssl://'));
+
+    if (isPageHttps && isUnencryptedWs && (brokerUrl.includes('192.168.') || brokerUrl.includes('127.0.0.1') || brokerUrl.includes('localhost') || brokerUrl.includes('10.') || brokerUrl.includes(':1883'))) {
+      // 记录友好提示
+      addSystemLog('【网络安全提示】当前页面运行在 HTTPS 加密环境下，浏览器安全机制（Mixed Content）会拦截未加密的 WebSocket (ws://) 连接。');
+      addSystemLog('💡 注意：您生成的 Flutter / React Native 手机原生 App 使用操作系统底层 TCP Socket，不受此限制，真机运行可直接连通 192.168.1.105:1883！');
+    }
 
     try {
       const client = mqtt.connect(brokerUrl, {
@@ -145,6 +163,7 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
       client.on('connect', () => {
         setIsConnected(true);
         setIsConnecting(false);
+        setHttpsDiagnosisNotice(null);
         setConnectionStatusText('已连接到 Broker');
 
         // Re-subscribe to existing topics
@@ -184,8 +203,14 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
         }
       });
 
-      client.on('error', (err) => {
-        addSystemLog(`MQTT 错误: ${err.message || err}`);
+      client.on('error', (err: any) => {
+        const errMsg = err?.message || String(err);
+        if (errMsg.includes('insecure WebSocket') || errMsg.includes('HTTPS') || errMsg.includes('SecurityError')) {
+          setHttpsDiagnosisNotice('HTTPS_MIXED_CONTENT');
+          addSystemLog(`浏览器安全拦截: HTTPS 页面禁止发起非加密 WebSocket 连接 (ws://)。此限制仅存在于网页浏览器，手机原生 App 运行无此限制。`);
+        } else {
+          addSystemLog(`MQTT 错误: ${errMsg}`);
+        }
       });
 
       client.on('close', () => {
@@ -200,7 +225,14 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
       });
     } catch (err: any) {
       setIsConnecting(false);
-      addSystemLog(`连接抛出异常: ${err.message || err}`);
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('insecure WebSocket') || errMsg.includes('HTTPS') || errMsg.includes('SecurityError') || errMsg.includes('Failed to construct')) {
+        setHttpsDiagnosisNotice('HTTPS_MIXED_CONTENT');
+        addSystemLog(`连接拦截 (浏览器安全策略): HTTPS 网页不允许连接非加密的 ws:// 或原生 TCP 端口。`);
+        addSystemLog(`📱 提示: 您的手机原生 Flutter/RN App 走的是底层 TCP 1883 套接字，编译后在真机上连接完全正常！`);
+      } else {
+        addSystemLog(`连接抛出异常: ${errMsg}`);
+      }
     }
   };
 
@@ -457,6 +489,59 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
                   )}
                 </button>
               </div>
+
+              {/* HTTPS vs Native Socket 深度原理解析卡片 */}
+              {httpsDiagnosisNotice && (
+                <div className="mt-3 p-3.5 bg-amber-950/40 border border-amber-500/50 rounded-xl space-y-2.5 animate-fadeIn">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-2 text-amber-300 font-bold text-xs">
+                      <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>为什么网页端提示连接异常？(核心原因)</span>
+                    </div>
+                    <button
+                      onClick={() => setHttpsDiagnosisNotice(null)}
+                      className="text-slate-400 hover:text-slate-200 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-slate-300 space-y-2 leading-relaxed">
+                    <div className="p-2 rounded bg-black/40 border border-amber-500/20 text-amber-200">
+                      <strong>🔴 网页浏览器安全限制：</strong>
+                      当前控制台运行在 <code>HTTPS</code> 加密网页中，浏览器安全机制禁止网页向局域网发起未加密的 <code>ws://</code> 或直接调用底层 TCP 1883 物理端口。
+                    </div>
+
+                    <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-200">
+                      <strong>🟢 手机真机 App (Flutter / React Native) 完全正常：</strong>
+                      手机 App 编译后是独立的 Android/iOS 原生程序，调用的是<strong>操作系统底层 TCP Socket</strong>，<strong>不受任何浏览器 HTTPS 限制</strong>！只要手机与 Broker (192.168.1.105) 在同一个 Wi-Fi，即可直接连通。
+                    </div>
+                  </div>
+
+                  <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={() => {
+                        setBrokerUrl('wss://broker.emqx.io:8084/mqtt');
+                        setHttpsDiagnosisNotice(null);
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition flex items-center justify-center space-x-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>一键切换至公网 WSS 体验网页收发</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setBrokerUrl('mqtt://192.168.1.105:1883');
+                        setClientId('MyMobilePhone');
+                        setHttpsDiagnosisNotice(null);
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center justify-center"
+                    >
+                      <span>保留 192.168.1.105 (用于手机真机)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
