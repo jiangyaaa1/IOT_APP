@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
+import { App } from '@capacitor/app';
 import {
   Wifi,
   WifiOff,
@@ -32,7 +33,7 @@ interface LiveMqttTesterProps {
 export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChange }) => {
   // MQTT Connection state (固定预置用户配置: 192.168.1.105:1883 & MyMobilePhone)
   const [brokerUrl, setBrokerUrl] = useState(() => {
-    return localStorage.getItem('fixed_mqtt_broker_url') || 'mqtt://192.168.1.105:1883';
+    return localStorage.getItem('fixed_mqtt_broker_url') || 'ws://192.168.1.105:8083';
   });
   const [clientId, setClientId] = useState(() => {
     return localStorage.getItem('fixed_mqtt_client_id') || 'MyMobilePhone';
@@ -41,6 +42,44 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatusText, setConnectionStatusText] = useState('未连接');
   const [httpsDiagnosisNotice, setHttpsDiagnosisNotice] = useState<string | null>(null);
+
+  // Handle Capacitor app state (Foreground/Background)
+  // This solves Doze Mode and Network Switch issues when app resumes
+  useEffect(() => {
+    let isActive = true;
+    const initAppListeners = async () => {
+      try {
+        await App.addListener('appStateChange', ({ isActive: appIsActive }) => {
+          if (!isActive) return;
+          console.log('[App State] Is Active: ', appIsActive);
+          if (appIsActive) {
+            // App came to foreground
+            addSystemLog('🟡 App 已恢复到前台，检查 MQTT 连接状态...');
+            if (clientRef.current && !clientRef.current.connected) {
+              addSystemLog('🟡 连接似乎已挂起，触发自动重连...');
+              clientRef.current.reconnect();
+            }
+          } else {
+            // App went to background (Doze mode)
+            addSystemLog('💤 App 已退到后台，可能会被系统挂起或受省电模式限制...');
+          }
+        });
+      } catch (err) {
+        console.warn('App listeners not available (likely running in browser, not Capacitor device)');
+      }
+    };
+    
+    initAppListeners();
+    
+    return () => {
+      isActive = false;
+      try {
+        App.removeAllListeners();
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
 
   // 持久化保存固定配置
   useEffect(() => {
@@ -150,12 +189,15 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
     }
 
     try {
+      // 避免 Client ID 冲突（致命问题）：给基础 Client ID 增加随机后缀以保证全局唯一
+      const uniqueClientId = `${clientId}_${Math.random().toString(16).substring(2, 6)}`;
+      
       const client = mqtt.connect(brokerUrl, {
-        clientId: clientId,
+        clientId: uniqueClientId,
         clean: true,
-        connectTimeout: 8000,
-        reconnectPeriod: 4000,
-        keepalive: 30
+        connectTimeout: 10000, // 增加超时时间，适应弱网环境
+        reconnectPeriod: 3000, // 开启自动重连 (自动恢复)
+        keepalive: 45,         // 心跳间隔 (Keep-Alive): 设置在 30-60s 之间，避免“假死”和频繁断连
       });
 
       clientRef.current = client;
@@ -358,30 +400,35 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
             </p>
           </div>
 
-          <div className="flex items-center space-x-2 self-start lg:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
             {/* Quick Preset Selectors */}
+            <button
+              onClick={() => {
+                setBrokerUrl('ws://192.168.1.105:8083');
+                setClientId('MyMobilePhone');
+              }}
+              className="text-xs px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 font-medium transition flex items-center space-x-1"
+              title="一键切换为 Capacitor 跨平台专用的 WebSocket 端口 (8083)"
+            >
+              <Smartphone className="w-3 h-3 text-cyan-400" />
+              <span>Capacitor 专用 (ws://...:8083)</span>
+            </button>
             <button
               onClick={() => {
                 setBrokerUrl('mqtt://192.168.1.105:1883');
                 setClientId('MyMobilePhone');
               }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 font-medium transition flex items-center space-x-1"
-              title="恢复已固定的 192.168.1.105:1883 / MyMobilePhone 配置"
+              className="text-xs px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 font-medium transition flex items-center space-x-1"
+              title="原生 TCP 协议 (注意：只能在打包后的原生应用，或者没有 HTTPS 限制的底层运行，浏览器会拦截)"
             >
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span>我的固定配置 (192.168.1.105)</span>
+              <Layers className="w-3 h-3 text-emerald-400" />
+              <span>原生 TCP (1883)</span>
             </button>
             <button
               onClick={() => setBrokerUrl('wss://broker.emqx.io:8084/mqtt')}
               className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
             >
-              EMQX 公共节点
-            </button>
-            <button
-              onClick={() => setBrokerUrl('wss://broker.hivemq.com:8884/mqtt')}
-              className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-            >
-              HiveMQ 节点
+              EMQX 公共
             </button>
           </div>
         </div>
@@ -417,14 +464,14 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
               <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/40 text-[11px] text-cyan-300">
                 <span className="flex items-center space-x-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                  <span>已固定配置: <strong className="font-mono text-cyan-200">192.168.1.105:1883</strong></span>
+                  <span>推荐配置: <strong className="font-mono text-cyan-200">ws://192.168.1.105:8083</strong></span>
                 </span>
-                <span className="font-mono text-slate-400">ClientID: <strong className="text-cyan-200">MyMobilePhone</strong></span>
+                <span className="font-mono text-slate-400">ClientID: <strong className="text-cyan-200">MyMobilePhone_*</strong></span>
               </div>
 
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-1">
-                  Broker URL (已固定为 192.168.1.105):
+                  Broker URL:
                 </label>
                 <input
                   type="text"
@@ -432,10 +479,10 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
                   disabled={isConnected || isConnecting}
                   onChange={(e) => setBrokerUrl(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 disabled:opacity-60"
-                  placeholder="mqtt://192.168.1.105:1883"
+                  placeholder="ws://192.168.1.105:8083"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  💡 手机原生 App (Flutter/React Native/Python) 直接连接原生 TCP <code className="text-cyan-400">192.168.1.105:1883</code>。
+                  💡 Capacitor 跨平台开发务必使用 <code className="text-cyan-400">ws://...:8083</code> WebSocket 端口。
                 </p>
               </div>
 
