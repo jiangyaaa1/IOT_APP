@@ -22,7 +22,13 @@ import {
   Smartphone,
   CheckCircle2,
   HelpCircle,
-  X
+  X,
+  PlusCircle,
+  User,
+  Snowflake,
+  Fan,
+  Lightbulb, Thermometer, Sun, Wind, Radar, DoorClosed, Droplets, Flame, ToggleRight, 
+  AlignJustify, Lock, Cctv, Bell, Bot, Monitor, Speaker, Plug, Zap, Music, Tv, Box, CircleDot, Cpu
 } from 'lucide-react';
 import { MqttMessage, TelemetryData } from '../types';
 
@@ -31,6 +37,60 @@ interface LiveMqttTesterProps {
 }
 
 export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChange }) => {
+  type ViewState = 'home' | 'broker' | 'config' | 'logs';
+  const [activeView, setActiveView] = useState<ViewState>('home');
+
+    const renderDeviceIcon = (type: string) => {
+    switch(type) {
+      case 'ac': return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-9 h-9">
+          <rect x="2" y="8" width="20" height="7" rx="1.5" fill="#E2E8F0" />
+          <rect x="2" y="14" width="20" height="1" fill="#475569" />
+          <circle cx="18" cy="11.5" r="0.8" fill="#1E293B" />
+        </svg>
+      );
+      case 'fan': return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
+          <circle cx="12" cy="12" r="10" stroke="#E2E8F0" strokeWidth="2" fill="#F8FAFC" />
+          <path d="M12 12C12 8 10 6 12 4C14 6 12 8 12 12Z" fill="#CBD5E1" />
+          <path d="M12 12C16 12 18 10 20 12C18 14 16 12 12 12Z" fill="#CBD5E1" />
+          <path d="M12 12C12 16 14 18 12 20C10 18 12 16 12 12Z" fill="#CBD5E1" />
+          <path d="M12 12C8 12 6 14 4 12C6 10 8 12 12 12Z" fill="#CBD5E1" />
+          <circle cx="12" cy="12" r="2" fill="#94A3B8" />
+        </svg>
+      );
+      case 'light': return <Lightbulb className="w-8 h-8 text-amber-400 stroke-[1.5]" />;
+      case 'temp_hum': return <Thermometer className="w-8 h-8 text-rose-400 stroke-[1.5]" />;
+      case 'illuminance': return <Sun className="w-8 h-8 text-orange-400 stroke-[1.5]" />;
+      case 'air_quality': return <Wind className="w-8 h-8 text-teal-400 stroke-[1.5]" />;
+      case 'presence': return <Radar className="w-8 h-8 text-indigo-400 stroke-[1.5]" />;
+      case 'door_sensor': return <DoorClosed className="w-8 h-8 text-orange-700 stroke-[1.5]" />;
+      case 'water_leak': return <Droplets className="w-8 h-8 text-blue-400 stroke-[1.5]" />;
+      case 'smoke_gas': return <Flame className="w-8 h-8 text-red-500 stroke-[1.5]" />;
+      case 'switch': return <ToggleRight className="w-8 h-8 text-emerald-400 stroke-[1.5]" />;
+      case 'light_strip': return <Sparkles className="w-8 h-8 text-fuchsia-400 stroke-[1.5]" />;
+      case 'curtain': return <AlignJustify className="w-8 h-8 text-gray-400 stroke-[1.5]" />;
+      case 'lock': return <Lock className="w-8 h-8 text-slate-600 stroke-[1.5]" />;
+      case 'camera': return <Cctv className="w-8 h-8 text-gray-700 stroke-[1.5]" />;
+      case 'doorbell': return <Bell className="w-8 h-8 text-yellow-500 stroke-[1.5]" />;
+      case 'robot_vacuum': return <Bot className="w-8 h-8 text-slate-500 stroke-[1.5]" />;
+      case 'fresh_air': return <Wind className="w-8 h-8 text-sky-400 stroke-[1.5]" />;
+      case 'purifier': return <Droplets className="w-8 h-8 text-cyan-400 stroke-[1.5]" />;
+      case 'panel': return <Monitor className="w-8 h-8 text-gray-800 stroke-[1.5]" />;
+      case 'speaker': return <Speaker className="w-8 h-8 text-gray-800 stroke-[1.5]" />;
+      case 'plug': return <Plug className="w-8 h-8 text-emerald-500 stroke-[1.5]" />;
+      case 'breaker': return <Zap className="w-8 h-8 text-yellow-500 stroke-[1.5]" />;
+      case 'audio': return <Music className="w-8 h-8 text-violet-500 stroke-[1.5]" />;
+      case 'tv_projector': return <Tv className="w-8 h-8 text-slate-800 stroke-[1.5]" />;
+      case 'fridge': return <Box className="w-8 h-8 text-gray-300 stroke-[1.5]" />;
+      case 'washer_heater': return <CircleDot className="w-8 h-8 text-blue-300 stroke-[1.5]" />;
+      default: return <Cpu className="w-8 h-8 text-gray-400 stroke-[1.5]" />;
+    }
+  };
+
+const [devices, setDevices] = useState<{id: number, name: string, type: string}[]>([]);
+  const [newDeviceName, setNewDeviceName] = useState('');
+  const [newDeviceType, setNewDeviceType] = useState('ac');
   // MQTT Connection state (固定预置用户配置: 192.168.1.105:1883 & MyMobilePhone)
   const [brokerUrl, setBrokerUrl] = useState(() => {
     return localStorage.getItem('fixed_mqtt_broker_url') || 'ws://192.168.1.105:8083';
@@ -125,10 +185,10 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
     onConnectionChange(isConnected);
   }, [isConnected, onConnectionChange]);
 
-  // Auto scroll logs
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Removed Auto scroll logs to prevent unwanted jumping
+  // useEffect(() => {
+  //   logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // }, [messages]);
 
   // Virtual MCU heartbeat and telemetry generator loop (MCU while(1) simulation)
   useEffect(() => {
@@ -189,11 +249,20 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
     }
 
     try {
-      // 避免 Client ID 冲突（致命问题）：给基础 Client ID 增加随机后缀以保证全局唯一
-      const uniqueClientId = `${clientId}_${Math.random().toString(16).substring(2, 6)}`;
-      
-      const client = mqtt.connect(brokerUrl, {
-        clientId: uniqueClientId,
+      let finalBrokerUrl = brokerUrl.trim();
+
+      // 协议自动纠错：拦截浏览器/WebView中使用 mqtt:// 或 tcp:// 并访问 1883 端口的行为
+      // 因为浏览器环境下的 mqtt.js 实际上发出的是 WebSocket 握手请求，打在 1883 纯 TCP 端口上会导致 "First packet not CONNECT" 协议报错
+      if ((finalBrokerUrl.startsWith('mqtt://') || finalBrokerUrl.startsWith('tcp://')) && finalBrokerUrl.includes(':1883')) {
+        const correctedUrl = finalBrokerUrl.replace('mqtt://', 'ws://').replace('tcp://', 'ws://').replace(':1883', ':8083');
+        addSystemLog(`⚠️ 【协议拦截】检测到您尝试在 Web/Capacitor 环境中使用原生 TCP 协议连接 1883 端口。`);
+        addSystemLog(`💡 【自动纠错】浏览器内核不支持直接发起原生 TCP 连接，已自动为您转换为 WebSocket 协议连接: ${correctedUrl}`);
+        finalBrokerUrl = correctedUrl;
+        setBrokerUrl(correctedUrl);
+      }
+
+      const client = mqtt.connect(finalBrokerUrl, {
+        clientId: clientId,
         clean: true,
         connectTimeout: 10000, // 增加超时时间，适应弱网环境
         reconnectPeriod: 3000, // 开启自动重连 (自动恢复)
@@ -379,98 +448,80 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
   );
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Overview Top Banner */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400">
-                <Wifi className="w-5 h-5" />
-              </span>
-              <h2 className="text-lg font-bold text-slate-100">
-                移动端 MQTT 真机/虚拟电控联调台
-              </h2>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                Live Testbench
-              </span>
-            </div>
-            <p className="text-sm text-slate-400 max-w-3xl">
-              直接在浏览器中发起真实的 MQTT WSS/TCP 通信（支持公共 EMQX / HiveMQ Broker 或局域网 MQTT），并配有内置的虚拟 ESP32 电控节点，让你无需硬件即可体验手机端数据收发与状态闭环。
-            </p>
+    <div className="min-h-screen bg-[#F7F7F9] text-gray-900 pb-12 relative overflow-hidden font-sans">
+      {/* --- Home View (Device Grid) --- */}
+      <div className={`transition-opacity duration-300 ${activeView === 'home' ? 'opacity-100 relative z-10' : 'opacity-0 pointer-events-none absolute inset-0'}`}>
+        {/* Header */}
+        <div className="pt-16 px-6 pb-2">
+          <div className="flex justify-end items-center space-x-6">
+            <button onClick={() => setActiveView('config')} className="text-gray-800 hover:text-black transition">
+              <PlusCircle className="w-6 h-6 stroke-[1.5]" />
+            </button>
+            <button onClick={() => setActiveView('broker')} className="text-gray-800 hover:text-black transition">
+              <User className="w-6 h-6 stroke-[1.5]" />
+            </button>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
-            {/* Quick Preset Selectors */}
-            <button
-              onClick={() => {
-                setBrokerUrl('ws://192.168.1.105:8083');
-                setClientId('MyMobilePhone');
-              }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 font-medium transition flex items-center space-x-1"
-              title="一键切换为 Capacitor 跨平台专用的 WebSocket 端口 (8083)"
-            >
-              <Smartphone className="w-3 h-3 text-cyan-400" />
-              <span>Capacitor 专用 (ws://...:8083)</span>
-            </button>
-            <button
-              onClick={() => {
-                setBrokerUrl('mqtt://192.168.1.105:1883');
-                setClientId('MyMobilePhone');
-              }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 font-medium transition flex items-center space-x-1"
-              title="原生 TCP 协议 (注意：只能在打包后的原生应用，或者没有 HTTPS 限制的底层运行，浏览器会拦截)"
-            >
-              <Layers className="w-3 h-3 text-emerald-400" />
-              <span>原生 TCP (1883)</span>
-            </button>
-            <button
-              onClick={() => setBrokerUrl('wss://broker.emqx.io:8084/mqtt')}
-              className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-            >
-              EMQX 公共
-            </button>
+          
+          <div className="mt-10">
+            <h1 className="text-4xl font-normal tracking-tight text-black">JHH_IOT</h1>
+            <p className="text-[13px] font-medium text-gray-400 mt-3">智能家居</p>
           </div>
         </div>
-      </div>
 
-      {/* Main Workbench Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Connection & Virtual Hardware Node (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Card 1: Connection Config */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Wifi className="w-4 h-4 text-cyan-400" />
-                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                  1. Broker 连接参数
+        {/* Device Grid / Empty State */}
+        {devices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center pt-32 px-6 text-center">
+            <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-5 border border-gray-50">
+              <PlusCircle className="w-8 h-8 text-gray-300 stroke-[1.5]" />
+            </div>
+            <h2 className="text-[17px] font-bold text-black mb-2">暂无设备</h2>
+            <p className="text-[13px] text-gray-400 font-medium max-w-[200px] leading-relaxed">
+              点击右上角的 "+" 按钮<br/>开始添加你的智能设备
+            </p>
+          </div>
+        ) : (
+          <div className="px-6 mt-6 grid grid-cols-2 gap-4">
+            {devices.map(device => (
+            <div 
+              key={device.id}
+              className="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] aspect-[4/3] flex flex-col justify-between items-start"
+            >
+              <div className="w-10 h-10 flex items-center justify-center text-gray-700">
+                {renderDeviceIcon(device.type)}
+              </div>
+              <div className="mt-auto">
+                <h3 className="text-[14px] font-medium text-black leading-tight">
+                  {device.name}
                 </h3>
               </div>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  isConnected
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : isConnecting
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
-                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                }`}
-              >
-                {connectionStatusText}
-              </span>
             </div>
+          ))}
+          </div>
+        )}
+      </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/40 text-[11px] text-cyan-300">
-                <span className="flex items-center space-x-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                  <span>推荐配置: <strong className="font-mono text-cyan-200">ws://192.168.1.105:8083</strong></span>
+      {/* --- Modals for Other Views (Redesigned to Light Theme) --- */}
+      {/* Broker View Modal */}
+      <div className={`fixed inset-0 z-50 bg-white text-gray-900 transition-transform duration-500 ${activeView === 'broker' ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="flex flex-col h-full bg-[#F7F7F9]">
+          <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100 shadow-sm">
+            <h2 className="text-lg font-semibold text-black">Broker 连接参数</h2>
+            <button onClick={() => setActiveView('home')} className="p-2 bg-gray-50 rounded-full text-gray-500 hover:text-black">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-4 flex-1 overflow-y-auto space-y-6">
+            
+            <div className="bg-white rounded-3xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-5">
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-blue-600">
+                <span className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                  <span>推荐配置: <strong className="font-mono text-blue-700">ws://192.168.1.105:8083</strong></span>
                 </span>
-                <span className="font-mono text-slate-400">ClientID: <strong className="text-cyan-200">MyMobilePhone_*</strong></span>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 ml-1">
                   Broker URL:
                 </label>
                 <input
@@ -478,24 +529,22 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
                   value={brokerUrl}
                   disabled={isConnected || isConnecting}
                   onChange={(e) => setBrokerUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 disabled:opacity-60"
+                  className="w-full px-4 py-3 bg-gray-50 border-transparent rounded-2xl text-[13px] font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                   placeholder="ws://192.168.1.105:8083"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  💡 Capacitor 跨平台开发务必使用 <code className="text-cyan-400">ws://...:8083</code> WebSocket 端口。
-                </p>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-mono text-slate-400">Client ID (已固定为 MyMobilePhone):</label>
+                <div className="flex items-center justify-between mb-1.5 ml-1">
+                  <label className="text-xs font-semibold text-gray-500">
+                    Client ID:
+                  </label>
                   <button
                     onClick={() => setClientId('MyMobilePhone')}
-                    disabled={isConnected}
-                    className="text-[11px] text-cyan-400 hover:underline flex items-center space-x-1 disabled:opacity-50"
+                    className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center space-x-1"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    <span>恢复 MyMobilePhone</span>
+                    <span>恢复</span>
                   </button>
                 </div>
                 <input
@@ -503,440 +552,271 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
                   value={clientId}
                   disabled={isConnected || isConnecting}
                   onChange={(e) => setClientId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500 disabled:opacity-60"
+                  className="w-full px-4 py-3 bg-gray-50 border-transparent rounded-2xl text-[13px] font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-4">
                 <button
-                  id="mqtt-connect-btn"
                   onClick={isConnected ? handleDisconnect : handleConnect}
                   disabled={isConnecting}
-                  className={`w-full py-2.5 px-4 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition shadow-lg cursor-pointer ${
+                  className={`w-full py-3.5 rounded-full font-bold text-sm transition-all shadow-md flex items-center justify-center space-x-2 ${
                     isConnected
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-900/30'
-                      : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-cyan-900/30'
+                      ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                      : isConnecting
+                      ? 'bg-blue-300 text-white cursor-not-allowed'
+                      : 'bg-black text-white hover:bg-gray-800 shadow-black/10'
                   }`}
                 >
                   {isConnected ? (
                     <>
                       <WifiOff className="w-4 h-4" />
-                      <span>断开 MQTT 连接</span>
+                      <span>断开连接</span>
                     </>
                   ) : isConnecting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>正在连接...</span>
+                      <span>连接中...</span>
                     </>
                   ) : (
                     <>
                       <Wifi className="w-4 h-4" />
-                      <span>立即连接 Broker</span>
+                      <span>连接 Broker</span>
                     </>
                   )}
-                </button>
-              </div>
-
-              {/* HTTPS vs Native Socket 深度原理解析卡片 */}
-              {httpsDiagnosisNotice && (
-                <div className="mt-3 p-3.5 bg-amber-950/40 border border-amber-500/50 rounded-xl space-y-2.5 animate-fadeIn">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-2 text-amber-300 font-bold text-xs">
-                      <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>为什么网页端提示连接异常？(核心原因)</span>
-                    </div>
-                    <button
-                      onClick={() => setHttpsDiagnosisNotice(null)}
-                      className="text-slate-400 hover:text-slate-200 p-0.5"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="text-[11px] text-slate-300 space-y-2 leading-relaxed">
-                    <div className="p-2 rounded bg-black/40 border border-amber-500/20 text-amber-200">
-                      <strong>🔴 网页浏览器安全限制：</strong>
-                      当前控制台运行在 <code>HTTPS</code> 加密网页中，浏览器安全机制禁止网页向局域网发起未加密的 <code>ws://</code> 或直接调用底层 TCP 1883 物理端口。
-                    </div>
-
-                    <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-200">
-                      <strong>🟢 手机真机 App (Flutter / React Native) 完全正常：</strong>
-                      手机 App 编译后是独立的 Android/iOS 原生程序，调用的是<strong>操作系统底层 TCP Socket</strong>，<strong>不受任何浏览器 HTTPS 限制</strong>！只要手机与 Broker (192.168.1.105) 在同一个 Wi-Fi，即可直接连通。
-                    </div>
-                  </div>
-
-                  <div className="pt-1 flex flex-col sm:flex-row gap-2">
-                    <button
-                      onClick={() => {
-                        setBrokerUrl('wss://broker.emqx.io:8084/mqtt');
-                        setHttpsDiagnosisNotice(null);
-                      }}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition flex items-center justify-center space-x-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>一键切换至公网 WSS 体验网页收发</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setBrokerUrl('mqtt://192.168.1.105:1883');
-                        setClientId('MyMobilePhone');
-                        setHttpsDiagnosisNotice(null);
-                      }}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center justify-center"
-                    >
-                      <span>保留 192.168.1.105 (用于手机真机)</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Card 2: Virtual Hardware MCU (ESP32/STM32) Node */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                <Cpu className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                  虚拟 ESP32 电控硬件节点
-                </h3>
-              </div>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <span className="text-xs text-slate-400 font-mono">节点模拟器</span>
-                <input
-                  type="checkbox"
-                  checked={mcuSimEnabled}
-                  onChange={(e) => setMcuSimEnabled(e.target.checked)}
-                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-500/30 bg-slate-950"
-                />
-              </label>
-            </div>
-
-            <p className="text-xs text-slate-400 mb-3">
-              模拟单片机 (如 STM32/ESP32) 在 <code className="text-emerald-300 font-mono">iot/device/telemetry</code> 主题周期上报电参数，并在 <code className="text-amber-300 font-mono">iot/device/control</code> 接收手机指令。
-            </p>
-
-            {/* MCU Dashboard Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 text-center">
-                <div className="text-[10px] text-slate-500 font-mono">供电电压 VCC</div>
-                <div className="text-base font-bold font-mono text-cyan-300">{mcuTelemetry.voltage}V</div>
-              </div>
-              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 text-center">
-                <div className="text-[10px] text-slate-500 font-mono">工作电流 I</div>
-                <div className="text-base font-bold font-mono text-emerald-300">{mcuTelemetry.current}A</div>
-              </div>
-              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 text-center">
-                <div className="text-[10px] text-slate-500 font-mono">MCU 温度</div>
-                <div className="text-base font-bold font-mono text-amber-300">{mcuTelemetry.temperature}°C</div>
-              </div>
-              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 text-center">
-                <div className="text-[10px] text-slate-500 font-mono">PWM 电机转速</div>
-                <div className="text-base font-bold font-mono text-purple-300">{mcuTelemetry.motorRpm} RPM</div>
-              </div>
-            </div>
-
-            {/* Interactive Hardware IO Pins */}
-            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-3">
-              <div className="text-xs font-mono text-slate-400 flex items-center justify-between">
-                <span>GPIO 输出引脚状态 (硬件执行机构):</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${relayState ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
-                  {mcuTelemetry.status}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setRelayState(!relayState)}
-                  className={`p-2.5 rounded-lg border text-xs font-mono flex items-center justify-between transition cursor-pointer ${
-                    relayState
-                      ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
-                      : 'bg-slate-900 border-slate-800 text-slate-500'
-                  }`}
-                >
-                  <span>继电器 (Relay)</span>
-                  <span className={`w-3 h-3 rounded-full ${relayState ? 'bg-emerald-400 shadow-sm shadow-emerald-400 animate-pulse' : 'bg-slate-700'}`} />
-                </button>
-
-                <button
-                  onClick={() => setLedState(!ledState)}
-                  className={`p-2.5 rounded-lg border text-xs font-mono flex items-center justify-between transition cursor-pointer ${
-                    ledState
-                      ? 'bg-amber-950/40 border-amber-500/50 text-amber-300'
-                      : 'bg-slate-900 border-slate-800 text-slate-500'
-                  }`}
-                >
-                  <span>LED 状态指示灯</span>
-                  <span className={`w-3 h-3 rounded-full ${ledState ? 'bg-amber-400 shadow-sm shadow-amber-400 animate-pulse' : 'bg-slate-700'}`} />
                 </button>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Right Column: Pub / Sub Operations & Live Logs (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Card 3: Subscribe & Publish Controls */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-5">
-            {/* Topic Subscription Section */}
-            <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <Layers className="w-4 h-4 text-cyan-400" />
-                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                  2. 订阅主题 (Subscribe)
-                </h3>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <input
-                  type="text"
-                  value={subTopicInput}
-                  onChange={(e) => setSubTopicInput(e.target.value)}
-                  placeholder="例如: iot/device/telemetry"
-                  className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500"
+      {/* Config View Modal (Publish & Subscribe) */}
+      <div className={`fixed inset-0 z-50 bg-white text-gray-900 transition-transform duration-500 ${activeView === 'config' ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="flex flex-col h-full bg-[#F7F7F9]">
+          <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100 shadow-sm">
+            <h2 className="text-lg font-semibold text-black">添加设备 / 测试控制</h2>
+            <button onClick={() => setActiveView('home')} className="p-2 bg-gray-50 rounded-full text-gray-500 hover:text-black">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-4 flex-1 overflow-y-auto space-y-6">
+            
+            {/* Add Device Section */}
+            <div className="bg-white rounded-3xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4">
+              <h4 className="text-[13px] font-bold text-gray-800 flex items-center space-x-1">
+                <PlusCircle className="w-4 h-4 text-blue-500" />
+                <span>添加新设备</span>
+              </h4>
+              <div className="flex space-x-2">
+                <input 
+                  type="text" 
+                  value={newDeviceName}
+                  onChange={e => setNewDeviceName(e.target.value)}
+                  placeholder="设备名称 (如: 客厅空调)"
+                  className="flex-1 px-4 py-3 bg-gray-50 border-transparent rounded-2xl text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={subQos}
-                    onChange={(e) => setSubQos(Number(e.target.value) as 0 | 1 | 2)}
-                    className="px-2 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-cyan-300 focus:outline-none"
-                  >
-                    <option value={0}>QoS 0 (最多一次)</option>
-                    <option value={1}>QoS 1 (至少一次)</option>
-                    <option value={2}>QoS 2 (恰好一次)</option>
-                  </select>
-                  <button
-                    onClick={handleSubscribe}
-                    className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1 transition cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>订阅</span>
-                  </button>
-                </div>
+                <select 
+                  value={newDeviceType} 
+                  onChange={e => setNewDeviceType(e.target.value)}
+                  className="w-[140px] px-3 bg-gray-50 border-transparent rounded-2xl text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="ac">空调</option>
+                  <option value="fan">风扇</option>
+                  <option value="light">智能照明</option>
+                  <option value="temp_hum">温湿度计</option>
+                  <option value="illuminance">光照亮度传感器</option>
+                  <option value="air_quality">空气质量</option>
+                  <option value="presence">人体存在传感器</option>
+                  <option value="door_sensor">门窗磁传感器</option>
+                  <option value="water_leak">水浸传感器</option>
+                  <option value="smoke_gas">烟雾/可燃气体</option>
+                  <option value="switch">智能墙壁开关</option>
+                  <option value="light_strip">智能灯带</option>
+                  <option value="curtain">智能窗帘电机</option>
+                  <option value="lock">智能门锁</option>
+                  <option value="camera">云台监控摄像头</option>
+                  <option value="doorbell">可视猫眼门铃</option>
+                  <option value="robot_vacuum">扫地/拖地机器人</option>
+                  <option value="fresh_air">智能新风机</option>
+                  <option value="purifier">加湿/空气净化器</option>
+                  <option value="panel">智能中控屏</option>
+                  <option value="speaker">智能音箱</option>
+                  <option value="plug">智能插座</option>
+                  <option value="breaker">智能断路器</option>
+                  <option value="audio">全屋背景音乐</option>
+                  <option value="tv_projector">智能电视/投影仪</option>
+                  <option value="fridge">智能冰箱</option>
+                  <option value="washer_heater">洗衣机/热水器</option>
+                </select>
               </div>
-
-              {/* Subscribed Topic Chips */}
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {subscribedTopics.map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-cyan-950/60 border border-cyan-700/40 text-cyan-300 text-xs font-mono"
-                  >
-                    <span>{t}</span>
-                    <button
-                      onClick={() => handleUnsubscribe(t)}
-                      className="hover:text-rose-400 transition"
-                      title="取消订阅"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+              <button 
+                onClick={() => {
+                  if (!newDeviceName.trim()) return;
+                  setDevices(prev => [...prev, { id: Date.now(), name: newDeviceName, type: newDeviceType }]);
+                  setNewDeviceName('');
+                  setActiveView('home');
+                }}
+                className="w-full py-3.5 bg-black text-white rounded-full text-sm font-bold transition shadow-md shadow-black/10"
+              >
+                保存并添加设备
+              </button>
             </div>
 
-            <div className="border-t border-slate-800 pt-4">
-              {/* Message Publish Section */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <Send className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                    3. 发布控制指令 (Publish)
-                  </h3>
+            <div className="bg-white rounded-3xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[13px] font-bold text-gray-800 flex items-center space-x-1">
+                    <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
+                    <span>订阅主题</span>
+                  </h4>
                 </div>
-
-                {/* Quick Presets */}
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-[11px] text-slate-500">电控预设:</span>
-                  <button
-                    onClick={() => setPubPayload('{"relay": 1, "led": 1, "speed": 2200}')}
-                    className="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono"
-                  >
-                    开电机
-                  </button>
-                  <button
-                    onClick={() => setPubPayload('{"relay": 0, "led": 0, "speed": 0}')}
-                    className="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono"
-                  >
-                    关停
-                  </button>
-                  <button
-                    onClick={() => setPubPayload('{"cmd": "GET_STATUS", "ts": ' + Date.now() + '}')}
-                    className="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono"
-                  >
-                    查询状态
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="sm:col-span-2">
-                    <input
-                      type="text"
-                      value={pubTopic}
-                      onChange={(e) => setPubTopic(e.target.value)}
-                      placeholder="发布目标主题 (例如: iot/device/control)"
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500"
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <select
-                      value={pubQos}
-                      onChange={(e) => setPubQos(Number(e.target.value) as 0 | 1 | 2)}
-                      className="w-full px-2 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-emerald-300 focus:outline-none"
-                    >
-                      <option value={0}>QoS 0</option>
-                      <option value={1}>QoS 1</option>
-                      <option value={2}>QoS 2</option>
-                    </select>
-                    <label className="flex items-center space-x-1 text-xs text-slate-400 font-mono whitespace-nowrap cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={pubRetain}
-                        onChange={(e) => setPubRetain(e.target.checked)}
-                        className="rounded border-slate-700 text-emerald-500 bg-slate-950"
-                      />
-                      <span>Retain</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <textarea
-                    rows={2}
-                    value={pubPayload}
-                    onChange={(e) => setPubPayload(e.target.value)}
-                    placeholder='JSON 指令载荷, 如 {"relay": 1}'
-                    className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500 resize-none"
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={subTopicInput}
+                    onChange={(e) => setSubTopicInput(e.target.value)}
+                    placeholder="例如: iot/device/telemetry"
+                    className="flex-1 px-4 py-3 bg-gray-50 border-transparent rounded-2xl text-[13px] font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <button
-                    onClick={handlePublish}
-                    className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex flex-col items-center justify-center space-y-1 transition cursor-pointer shadow-lg shadow-emerald-950/40"
+                    onClick={handleSubscribe}
+                    disabled={!isConnected}
+                    className="px-5 py-3 bg-emerald-50 text-emerald-700 rounded-2xl text-xs font-bold transition disabled:opacity-50"
                   >
-                    <Send className="w-4 h-4" />
-                    <span>发布</span>
+                    订阅
+                  </button>
+                </div>
+                {subscribedTopics.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {subscribedTopics.map((t) => (
+                      <span key={t} className="inline-flex items-center px-2 py-1 rounded-lg bg-emerald-50 text-[11px] text-emerald-700 font-mono">
+                        {t}
+                        <button onClick={() => handleUnsubscribe(t)} className="ml-1.5 hover:text-emerald-900">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="h-px bg-gray-100 w-full" />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[13px] font-bold text-gray-800 flex items-center space-x-1">
+                    <ArrowUpRight className="w-4 h-4 text-blue-500" />
+                    <span>发布控制指令</span>
+                  </h4>
+                  <button 
+                    onClick={() => setActiveView('logs')}
+                    className="text-[11px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full flex items-center space-x-1"
+                  >
+                    <Terminal className="w-3 h-3" />
+                    <span>查看日志</span>
+                  </button>
+                </div>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={pubTopic}
+                    onChange={(e) => setPubTopic(e.target.value)}
+                    placeholder="目标主题"
+                    className="w-full px-4 py-3 bg-gray-50 border-transparent rounded-2xl text-[13px] font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <button
+                    onClick={() => {
+                      const payload = JSON.stringify({ cmd: "LED_ON", relay: 1, speed: 1500 });
+                      if (clientRef.current?.connected) {
+                        clientRef.current.publish(pubTopic, payload, { qos: pubQos, retain: pubRetain });
+                        addSystemLog(`📤 [手动发送] ${pubTopic} -> ${payload}`);
+                      }
+                    }}
+                    disabled={!isConnected}
+                    className="py-3 bg-blue-50 text-blue-700 rounded-2xl text-xs font-bold transition flex justify-center disabled:opacity-50"
+                  >
+                    发送 ON
+                  </button>
+                  <button
+                    onClick={() => {
+                      const payload = JSON.stringify({ cmd: "LED_OFF", relay: 0, speed: 0 });
+                      if (clientRef.current?.connected) {
+                        clientRef.current.publish(pubTopic, payload, { qos: pubQos, retain: pubRetain });
+                        addSystemLog(`📤 [手动发送] ${pubTopic} -> ${payload}`);
+                      }
+                    }}
+                    disabled={!isConnected}
+                    className="py-3 bg-gray-100 text-gray-700 rounded-2xl text-xs font-bold transition flex justify-center disabled:opacity-50"
+                  >
+                    发送 OFF
                   </button>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Card 4: Terminal Data Stream (Logs & Telemetry Packets) */}
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[380px]">
-            {/* Terminal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-2">
-              <div className="flex items-center space-x-2">
-                <Terminal className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-bold font-mono text-slate-300">
-                  通信数据监控窗口 (RX/TX Packet Stream)
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 font-mono">
-                  {filteredMessages.length} 条报文
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                {/* View Format Toggle */}
-                <div className="flex bg-slate-900 rounded-lg p-0.5 border border-slate-800 text-[11px] font-mono">
+      {/* Logs View Modal */}
+      <div className={`fixed inset-0 z-50 bg-white text-gray-900 transition-transform duration-500 ${activeView === 'logs' ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="flex flex-col h-full bg-[#F7F7F9]">
+          <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100 shadow-sm">
+            <h2 className="text-lg font-semibold text-black">通信日志</h2>
+            <button onClick={() => setActiveView('config')} className="p-2 bg-gray-50 rounded-full text-gray-500 hover:text-black">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 p-4 overflow-hidden flex flex-col">
+            <div className="bg-white rounded-3xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">
+                    <span className="text-gray-900 font-bold">{messages.length}</span> 条报文
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => setViewMode('formatted')}
-                    className={`px-2 py-0.5 rounded ${viewMode === 'formatted' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400'}`}
+                    onClick={() => setMessages([])}
+                    className="p-1.5 text-gray-400 hover:text-rose-500 bg-gray-50 rounded-lg transition"
                   >
-                    格式化
-                  </button>
-                  <button
-                    onClick={() => setViewMode('hex')}
-                    className={`px-2 py-0.5 rounded ${viewMode === 'hex' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400'}`}
-                  >
-                    HEX
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-
-                <button
-                  onClick={() => setMessages([])}
-                  className="p-1 text-slate-500 hover:text-slate-300 hover:bg-slate-900 rounded transition"
-                  title="清空日志"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
               </div>
-            </div>
 
-            {/* Filter bar */}
-            <div className="mb-2">
-              <input
-                type="text"
-                value={filterTopic}
-                onChange={(e) => setFilterTopic(e.target.value)}
-                placeholder="🔍 按主题或载荷过滤日志..."
-                className="w-full px-2.5 py-1 bg-slate-900/60 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
+              <div className="flex-1 overflow-y-auto space-y-2 font-mono text-[11px]">
+                {filteredMessages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2">
+                    <Activity className="w-8 h-8 opacity-40 animate-pulse" />
+                    <p className="text-xs">暂无日志</p>
+                  </div>
+                ) : (
+                  filteredMessages.map((msg) => {
+                    const isRx = msg.direction === 'inbound';
+                    const isSys = msg.topic === 'SYSTEM';
 
-            {/* Scrollable Packet Log List */}
-            <div className="flex-1 overflow-y-auto space-y-1.5 font-mono text-xs pr-1 scrollbar-thin scrollbar-thumb-slate-800">
-              {filteredMessages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2">
-                  <Activity className="w-8 h-8 opacity-40 animate-pulse" />
-                  <p className="text-xs">暂无 MQTT 报文数据流</p>
-                  <p className="text-[11px] text-slate-600">
-                    点击上方“立即连接 Broker”并订阅主题以开始接收数据
-                  </p>
-                </div>
-              ) : (
-                filteredMessages.map((msg) => {
-                  const isRx = msg.direction === 'inbound';
-                  const isSys = msg.topic === 'SYSTEM';
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`p-2 rounded-lg border text-[11px] transition ${
-                        isSys
-                          ? 'bg-slate-900/40 border-slate-800/60 text-slate-400'
-                          : isRx
-                          ? 'bg-emerald-950/20 border-emerald-900/30 text-emerald-200'
-                          : 'bg-cyan-950/20 border-cyan-900/30 text-cyan-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1 opacity-80">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-slate-500 text-[10px]">{msg.timestamp}</span>
-                          <span
-                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                              isSys
-                                ? 'bg-slate-800 text-slate-300'
-                                : isRx
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                            }`}
-                          >
-                            {isSys ? 'SYS' : isRx ? 'RX 接收' : 'TX 发送'}
-                          </span>
-                          <span className="text-slate-400 font-semibold">{msg.topic}</span>
+                    return (
+                      <div key={msg.id} className={`p-3 rounded-xl border ${
+                        isSys ? 'bg-gray-50 border-gray-100 text-gray-500' : 
+                        isRx ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 
+                        'bg-blue-50 border-blue-100 text-blue-800'
+                      }`}>
+                        <div className="flex justify-between mb-1 opacity-70 text-[10px]">
+                          <span>{msg.timestamp}</span>
+                          <span className="font-bold">{isSys ? 'SYS' : isRx ? 'RX' : 'TX'} - {msg.topic}</span>
                         </div>
-                        {!isSys && (
-                          <div className="flex items-center space-x-2 text-[10px] text-slate-500">
-                            <span>QoS {msg.qos}</span>
-                            {msg.retain && <span className="text-amber-400 font-bold">[Retain]</span>}
-                          </div>
-                        )}
+                        <div className="break-all">{msg.payload}</div>
                       </div>
-
-                      <div className="pl-1 break-all select-all font-mono">
-                        {viewMode === 'hex' ? (
-                          <span className="text-amber-300/90">{toHex(msg.payload)}</span>
-                        ) : (
-                          <span>{msg.payload}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={logEndRef} />
+                    );
+                  })
+                )}
+                <div ref={logEndRef} />
+              </div>
             </div>
           </div>
         </div>
