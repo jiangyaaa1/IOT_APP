@@ -31,14 +31,16 @@ import {
   AlignJustify, Lock, Cctv, Bell, Bot, Monitor, Speaker, Plug, Zap, Music, Tv, Box, CircleDot, Cpu
 } from 'lucide-react';
 import { MqttMessage, TelemetryData } from '../types';
+import { DeviceControlPanel } from './DeviceControlPanel';
 
 interface LiveMqttTesterProps {
   onConnectionChange: (connected: boolean) => void;
 }
 
 export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChange }) => {
-  type ViewState = 'home' | 'broker' | 'config' | 'logs';
+  type ViewState = 'home' | 'broker' | 'config' | 'logs' | 'device';
   const [activeView, setActiveView] = useState<ViewState>('home');
+  const [selectedDevice, setSelectedDevice] = useState<any>(null);
 
     const renderDeviceIcon = (type: string) => {
     switch(type) {
@@ -484,7 +486,11 @@ const [devices, setDevices] = useState<{id: number, name: string, type: string}[
             {devices.map(device => (
             <div 
               key={device.id}
-              className="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] aspect-[4/3] flex flex-col justify-between items-start"
+              className="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] aspect-[4/3] flex flex-col justify-between items-start cursor-pointer hover:shadow-md transition active:scale-[0.98]"
+              onClick={() => {
+                setSelectedDevice(device);
+                setActiveView('device');
+              }}
             >
               <div className="w-10 h-10 flex items-center justify-center text-gray-700">
                 {renderDeviceIcon(device.type)}
@@ -821,6 +827,13 @@ const [devices, setDevices] = useState<{id: number, name: string, type: string}[
           </div>
         </div>
       </div>
+      {/* Device Control Modal */}
+      <div className={`fixed inset-0 z-50 bg-[#F8FAFC] text-gray-900 transition-transform duration-500 ${activeView === 'device' ? 'translate-y-0' : 'translate-y-full'}`}>
+        {selectedDevice && (
+          <DeviceControlPanel device={selectedDevice} onBack={() => setActiveView('home')} />
+        )}
+      </div>
+
     </div>
   );
 };
