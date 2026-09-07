@@ -8,6 +8,7 @@ import {
   Trash2, AlertCircle, Loader2, CheckCircle2
 } from 'lucide-react';
 import { MqttMessage } from '../types';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 // UI Components
 const Card = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
@@ -66,7 +67,7 @@ const TrendChart = ({ color, fill }: { color: string, fill: string }) => (
 );
 
 export const DeviceControlPanel = ({ device, deviceType, onBack, onCommand, onDelete }: { device?: any, deviceType?: string, onBack: () => void, onCommand?: (topic: string, payload: any) => void, onDelete?: (deviceId: number) => Promise<void> }) => {
-  const [uiState, setUiState] = useState<Record<string, any>>({});
+  const [uiState, setUiState] = useLocalStorage<Record<string, any>>(`iot_device_ui_${device?.id || 'default'}`, {});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');

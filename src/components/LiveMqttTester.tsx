@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { MqttMessage, TelemetryData } from '../types';
 import { DeviceControlPanel } from './DeviceControlPanel';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface LiveMqttTesterProps {
   onConnectionChange: (connected: boolean) => void;
@@ -90,7 +91,7 @@ export const LiveMqttTester: React.FC<LiveMqttTesterProps> = ({ onConnectionChan
     }
   };
 
-const [devices, setDevices] = useState<{id: number, name: string, type: string}[]>([]);
+  const [devices, setDevices] = useLocalStorage<{id: number, name: string, type: string}[]>('iot_devices', []);
   const [newDeviceName, setNewDeviceName] = useState('');
   const [newDeviceType, setNewDeviceType] = useState('ac');
   // MQTT Connection state (固定预置用户配置: 192.168.1.105:1883 & MyMobilePhone)
