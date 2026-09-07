@@ -28,7 +28,7 @@ import {
   Snowflake,
   Fan,
   Lightbulb, Thermometer, Sun, Wind, Radar, DoorClosed, Droplets, Flame, ToggleRight, 
-  AlignJustify, Lock, Cctv, Bell, Bot, Monitor, Speaker, Plug, Zap, Music, Tv, Box, CircleDot, Cpu
+  AlignJustify, Lock, Cctv, Bell, Bot, Monitor, Speaker, Plug, Zap, Music, Tv, Box, CircleDot
 } from 'lucide-react';
 import { MqttMessage, TelemetryData } from '../types';
 import { DeviceControlPanel } from './DeviceControlPanel';
@@ -830,7 +830,28 @@ const [devices, setDevices] = useState<{id: number, name: string, type: string}[
       {/* Device Control Modal */}
       <div className={`fixed inset-0 z-50 bg-[#F8FAFC] text-gray-900 transition-transform duration-500 ${activeView === 'device' ? 'translate-y-0' : 'translate-y-full'}`}>
         {selectedDevice && (
-          <DeviceControlPanel device={selectedDevice} onBack={() => setActiveView('home')} />
+          <DeviceControlPanel 
+            device={selectedDevice} 
+            onBack={() => setActiveView('home')} 
+            onDelete={async (deviceId) => {
+              return new Promise<void>((resolve, reject) => {
+                setTimeout(() => {
+                  setDevices(prev => prev.filter(d => d.id !== deviceId));
+                  addSystemLog(`🗑️ 已删除设备: ID ${deviceId}`);
+                  resolve();
+                }, 800); // 模拟网络延迟
+              });
+            }}
+            onCommand={(topic, payload) => {
+              const payloadStr = JSON.stringify(payload);
+              if (clientRef.current?.connected) {
+                clientRef.current.publish(topic, payloadStr, { qos: pubQos, retain: pubRetain });
+                addSystemLog(`📤 [UI指令] ${topic} -> ${payloadStr}`);
+              } else {
+                addSystemLog(`⚠️ [UI指令离线模拟] ${topic} -> ${payloadStr}`);
+              }
+            }}
+          />
         )}
       </div>
 

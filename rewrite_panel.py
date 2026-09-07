@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import re
+
+content = """import React, { useState } from 'react';
 import { 
   ArrowLeft, Power, Settings, MoreVertical, Plus, Minus,
   Sun, Moon, Volume2, Maximize, Play, Pause, SkipForward, SkipBack,
   Thermometer, Droplets, Fan, Wind, Lock, Cctv, Bell,
   Battery, Clock, Flame, AlignJustify, Radar, Activity,
-  Tv, Navigation, ArrowUp, ArrowDown, ArrowRight, Zap, Lightbulb,
-  Trash2, AlertCircle, Loader2, CheckCircle2
+  Tv, Navigation, ArrowUp, ArrowDown, ArrowRight, Zap, Lightbulb
 } from 'lucide-react';
 import { MqttMessage } from '../types';
 
 // UI Components
-const Card = ({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
-  <div onClick={onClick} className={`bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 ${className}`}>
+const Card = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+  <div className={`bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 ${className}`}>
     {children}
   </div>
 );
@@ -65,12 +66,8 @@ const TrendChart = ({ color, fill }: { color: string, fill: string }) => (
   </div>
 );
 
-export const DeviceControlPanel = ({ device, deviceType, onBack, onCommand, onDelete }: { device?: any, deviceType?: string, onBack: () => void, onCommand?: (topic: string, payload: any) => void, onDelete?: (deviceId: number) => Promise<void> }) => {
+export const DeviceControlPanel = ({ device, onBack, onCommand }: { device: any, onBack: () => void, onCommand?: (topic: string, payload: any) => void }) => {
   const [uiState, setUiState] = useState<Record<string, any>>({});
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   const getState = (key: string, defaultVal: any) => uiState[key] !== undefined ? uiState[key] : defaultVal;
   
@@ -91,28 +88,17 @@ export const DeviceControlPanel = ({ device, deviceType, onBack, onCommand, onDe
         <ArrowLeft className="w-5 h-5" />
       </button>
       <div className="text-center">
-        <h2 className="text-[17px] font-extrabold text-gray-900 tracking-tight">{device?.name || '设备控制'}</h2>
-        <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">{device?.room || '未知房间'}</span>
+        <h2 className="text-[17px] font-extrabold text-gray-900 tracking-tight">{device.name}</h2>
+        <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">{device.room || '未知房间'}</span>
       </div>
-      <div className="flex space-x-2">
-        {onDelete && device?.id && (
-          <button 
-            onClick={() => setShowDeleteModal(true)} 
-            className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-red-500 shadow-sm border border-red-100 active:scale-95 transition-transform"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        )}
-        <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-800 shadow-sm border border-gray-100 active:scale-95 transition-transform">
-          <MoreVertical className="w-5 h-5" />
-        </button>
-      </div>
+      <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-800 shadow-sm border border-gray-100 active:scale-95 transition-transform">
+        <MoreVertical className="w-5 h-5" />
+      </button>
     </div>
   );
 
   const renderContent = () => {
-    const typeToRender = deviceType || device?.type;
-    switch(typeToRender) {
+    switch(device.type) {
       case 'light': {
         const topic = 'iot/device/control/smart_lighting';
         const power = getState('light_power', true);
@@ -1001,67 +987,6 @@ export const DeviceControlPanel = ({ device, deviceType, onBack, onCommand, onDe
       <div className="flex-1 overflow-y-auto px-6 pb-12 pt-2 scrollbar-hide">
          {renderContent()}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => !isDeleting && setShowDeleteModal(false)}></div>
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl relative z-10 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4 text-red-500 mx-auto">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-center text-gray-900 mb-2">确认删除设备</h3>
-            <p className="text-sm text-gray-500 text-center mb-6">确定要删除该设备吗？此操作无法撤销。</p>
-            
-            {deleteError && (
-              <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-medium rounded-xl text-center">
-                {deleteError}
-              </div>
-            )}
-
-            <div className="flex space-x-3">
-              <button 
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
-                className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-2xl active:scale-95 transition-all disabled:opacity-50"
-              >
-                取消
-              </button>
-              <button 
-                onClick={async () => {
-                  setIsDeleting(true);
-                  setDeleteError('');
-                  try {
-                    if (onDelete && device?.id) {
-                      await onDelete(device.id);
-                      setDeleteSuccess(true);
-                      setTimeout(() => {
-                        setShowDeleteModal(false);
-                        onBack();
-                      }, 1500);
-                    }
-                  } catch (err: any) {
-                    setDeleteError(err.message || '删除失败，请重试');
-                    setIsDeleting(false);
-                  }
-                }}
-                disabled={isDeleting}
-                className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl active:scale-95 transition-all flex items-center justify-center disabled:opacity-70 shadow-lg shadow-red-500/20"
-              >
-                {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : '确定删除'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Toast */}
-      {deleteSuccess && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[110] bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-2 animate-in slide-in-from-top-4 fade-in duration-300">
-          <CheckCircle2 className="w-5 h-5 text-green-400" />
-          <span className="text-sm font-bold">删除成功</span>
-        </div>
-      )}
     </div>
   );
 };
